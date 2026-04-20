@@ -1,0 +1,130 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# k8s/namespace.yaml
+# Create the dedicated namespace for the whole game
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: card-battle
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# k8s/rbac.yaml
+# Give the Game Server pod permission to CREATE and DELETE pods in this namespace.
+# This is what lets server.js call spawnPlayerPod() / deletePlayerPod().
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: game-server-sa
+  namespace: card-battle
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-manager
+  namespace: card-battle
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "create", "delete", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: game-server-pod-manager
+  namespace: card-battle
+subjects:
+  - kind: ServiceAccount
+    name: game-server-sa
+    namespace: card-battle
+roleRef:
+  kind: Role
+  name: pod-manager
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# k8s/game-server-deployment.yaml
+# The ONE pod that runs all the game code (server.js).
+# ALL game logic, card state, room management lives here.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: game-server
+  namespace: card-battle
+  labels:
+    app: game-server
+spec:
+  replicas: 1                         # only 1 — all game state lives here
+  selector:
+    matchLabels:
+      app: game-server
+  template:
+    metadata:
+      labels:
+        app: game-server
+    spec:
+      serviceAccountName: game-server-sa    # needs RBAC to spawn player pods
+      containers:
+        - name: game-server
+          image: card-battle-server:latest  # build with: docker build -t card-battle-server .
+          imagePullPolicy: Never            # use local image (minikube / kind)
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PORT
+              value: "3000"
+            - name: KUBERNETES_ENABLED
+              value: "true"                 # turns on pod spawning in server.js
+            - name: K8S_NAMESPACE
+              value: "card-battle"
+            - name: K8S_PLAYER_IMAGE
+              value: "card-battle-player:latest"
+            - name: GAME_SERVER_SVC
+              value: "game-server-service"
+          # Kubernetes health checks — uses the /api/health endpoint we added
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# k8s/game-server-service.yaml
+# ClusterIP service so player pods can reach the game server internally,
+# and a NodePort so players' browsers can connect from outside the cluster.
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: game-server-service
+  namespace: card-battle
+spec:
+  selector:
+    app: game-server
+  ports:
+    - name: websocket
+      protocol: TCP
+      port: 3000         # port inside the cluster
+      targetPort: 3000
+      nodePort: 30000    # port you open in your browser: http://<node-ip>:30000
+  type: NodePort

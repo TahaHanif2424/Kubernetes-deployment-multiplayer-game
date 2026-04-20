@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Card Battle</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0f;
+    --surface: #18181c;
+    --surface2: #222228;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.18);
+    --text: #f0eff4;
+    --muted: #77767f;
+    --accent: #7f6af5;
+    --accent2: #b09af8;
+    --red: #e84b6a;
+    --green: #3ec97a;
+    --amber: #f5a623;
+    --radius: 14px;
+    --radius-sm: 9px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: 'Syne', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 55% 35% at 75% 15%, rgba(127,106,245,0.13) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 45% at 15% 85%, rgba(62,201,122,0.07) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+  #app {
+    position: relative; z-index: 1;
+    max-width: 560px; margin: 0 auto;
+    padding: 24px 16px 48px;
+  }
+
+  /* ── Screens ── */
+  .screen { display: none; }
+  .screen.active { display: block; animation: fadeUp .28s ease; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+  /* ── Typography ── */
+  .logo {
+    font-size: 36px; font-weight: 800; letter-spacing: -1.5px;
+    background: linear-gradient(130deg, #f0eff4 20%, #7f6af5 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    margin-bottom: 4px;
+  }
+  .tagline { font-size: 13px; color: var(--muted); margin-bottom: 32px; letter-spacing: 0.04em; }
+  .section-label {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+  }
+
+  /* ── Panels ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px; margin-bottom: 14px;
+  }
+  .panel-title {
+    font-size: 15px; font-weight: 700; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* ── Inputs ── */
+  .inp {
+    width: 100%; padding: 11px 14px;
+    border-radius: var(--radius-sm); border: 1px solid var(--border2);
+    background: var(--surface2); color: var(--text);
+    font-family: 'Syne', sans-serif; font-size: 14px;
+    outline: none; transition: border-color .15s;
+    letter-spacing: 0.02em;
+  }
+  .inp:focus { border-color: var(--accent); }
+  .inp.code-inp {
+    font-family: 'DM Mono', monospace; font-size: 22px;
+    letter-spacing: 0.15em; text-transform: uppercase; text-align: center;
+  }
+  .inp-row { display: flex; gap: 8px; }
+  .inp-row .inp { flex: 1; }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 11px 22px; border-radius: var(--radius-sm);
+    border: 1px solid var(--border2); background: transparent;
+    color: var(--text); font-family: 'Syne', sans-serif;
+    font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: all .15s; white-space: nowrap;
+  }
+  .btn:hover { background: var(--surface2); border-color: rgba(255,255,255,0.3); }
+  .btn:active { transform: scale(.97); }
+  .btn:disabled { opacity: .35; pointer-events: none; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #9380f8; border-color: #9380f8; }
+  .btn-full { width: 100%; }
+  .btn-sm { padding: 7px 14px; font-size: 13px; }
+  .btn-danger { border-color: var(--red); color: var(--red); }
+  .btn-danger:hover { background: rgba(232,75,106,0.1); }
+  .btn-green { border-color: var(--green); color: var(--green); }
+  .btn-green:hover { background: rgba(62,201,122,0.1); }
+
+  /* ── Divider ── */
+  .divider {
+    display: flex; align-items: center; gap: 12px;
+    color: var(--muted); font-size: 12px; margin: 16px 0;
+  }
+  .divider::before, .divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* ── Lobby ── */
+  .player-list { list-style: none; }
+  .player-list li {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0; border-bottom: 1px solid var(--border);
+    font-size: 14px;
+  }
+  .player-list li:last-child { border-bottom: none; }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; flex-shrink: 0;
+  }
+  .badge {
+    padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600;
+    background: rgba(127,106,245,0.2); color: var(--accent2);
+    border: 1px solid rgba(127,106,245,0.3);
+  }
+  .room-code-display {
+    font-family: 'DM Mono', monospace;
+    font-size: 38px; font-weight: 500; letter-spacing: 0.18em;
+    color: var(--accent2); text-align: center;
+    padding: 14px 0; margin-bottom: 6px;
+  }
+  .waiting-dots::after {
+    content: ''; animation: dots 1.4s steps(4, end) infinite;
+  }
+  @keyframes dots {
+    0%{content:''} 25%{content:'.'} 50%{content:'..'} 75%{content:'...'}
+  }
+
+  /* ── Scores bar ── */
+  #scores-bar {
+    display: flex; gap: 7px; flex-wrap: wrap; margin-bottom: 14px;
+  }
+  .score-chip {
+    display: flex; align-items: center; gap: 7px;
+    padding: 5px 12px 5px 6px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 999px; font-size: 13px; color: var(--muted);
+    transition: border-color .2s, color .2s;
+  }
+  .score-chip.active { border-color: var(--accent); color: var(--text); }
+  .score-chip .av-sm {
+    width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700;
+  }
+  .chip-name { max-width: 80px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip-count { font-weight: 700; color: var(--accent2); margin-left: 2px; }
+
+  /* ── Game header ── */
+  .game-header {
+    display: flex; justify-content: space-between;
+    align-items: center; margin-bottom: 16px;
+  }
+  .game-logo { font-size: 18px; font-weight: 800; letter-spacing: -0.5px; }
+
+  /* ── Pile area ── */
+  .pile-area {
+    display: flex; gap: 24px; align-items: center; justify-content: center;
+    padding: 18px 0 22px;
+  }
+  .pile-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .pile-label { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+  .pile-card {
+    width: 68px; height: 100px; border-radius: 11px;
+    border: 1px solid var(--border2); background: var(--surface2);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace; font-size: 16px; font-weight: 500;
+    cursor: pointer; transition: border-color .15s, transform .1s;
+  }
+  .pile-card:hover { border-color: rgba(255,255,255,0.3); }
+  .pile-card.clickable { border-color: var(--accent); box-shadow: 0 0 16px rgba(127,106,245,0.2); }
+  .pile-card .suit { font-size: 22px; }
+  .pile-card .val { font-size: 13px; margin-top: 2px; }
+
+  /* ── Turn info ── */
+  .turn-info { margin-bottom: 12px; }
+  .turn-name { font-size: 16px; font-weight: 700; color: var(--accent2); margin-bottom: 4px; }
+  .msg-box {
+    font-size: 13px; color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 9px 14px; min-height: 38px;
+  }
+
+  /* ── Hand ── */
+  .hand-label {
+    font-size: 13px; color: var(--muted); margin-bottom: 10px;
+    font-weight: 500;
+  }
+  .hand {
+    display: flex; gap: 7px; flex-wrap: wrap; min-height: 90px;
+    align-items: flex-start;
+  }
+  .hand-card {
+    width: 58px; height: 86px; border-radius: 10px;
+    border: 1px solid var(--border2); background: var(--surface2);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; cursor: pointer; user-select: none;
+    transition: transform .12s, border-color .12s, box-shadow .12s;
+    font-family: 'DM Mono', monospace;
+  }
+  .hand-card .hc-suit { font-size: 20px; }
+  .hand-card .hc-val { font-size: 12px; font-weight: 500; }
+  .hand-card:hover { transform: translateY(-7px); }
+  .hand-card.playable {
+    border-color: var(--accent);
+    box-shadow: 0 0 14px rgba(127,106,245,0.28);
+  }
+  .hand-card.red-card { color: var(--red); }
+  .hand-card.wild-card { color: var(--amber); border-color: rgba(245,166,35,0.35); }
+  .hand-card.dead { opacity: .28; pointer-events: none; }
+  .hand-card.not-your-turn { pointer-events: none; }
+
+  /* ── Suit chooser ── */
+  #suit-chooser {
+    display: none; margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid var(--border);
+  }
+  .suit-chooser-label { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  .suit-btns { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  /* ── Action bar ── */
+  .action-bar {
+    display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap;
+  }
+
+  /* ── Waiting overlay ── */
+  .waiting-msg {
+    text-align: center; padding: 20px; color: var(--muted); font-size: 14px;
+  }
+
+  /* ── End screen ── */
+  .end-center { text-align: center; padding: 40px 20px 32px; }
+  .trophy-big { font-size: 60px; margin-bottom: 14px; }
+  .winner-big { font-size: 28px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 6px; }
+  .end-sub { font-size: 14px; color: var(--muted); margin-bottom: 24px; }
+  .final-list { max-width: 300px; margin: 0 auto 28px; text-align: left; }
+  .final-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 0; border-bottom: 1px solid var(--border); font-size: 14px;
+  }
+  .final-row:last-child { border-bottom: none; }
+
+  /* ── Error toast ── */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--red); color: #fff; padding: 10px 20px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600; opacity: 0; transition: all .25s;
+    pointer-events: none; z-index: 999; white-space: nowrap; max-width: 90vw;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Responsive ── */
+  @media (max-width: 400px) {
+    .hand-card { width: 50px; height: 74px; }
+    .hand-card .hc-suit { font-size: 16px; }
+    .pile-card { width: 58px; height: 86px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="toast"></div>
+
+  <!-- ════ HOME ════ -->
+  <div id="home-screen" class="screen active">
+    <p class="logo">Card Battle</p>
+    <p class="tagline">Real-time multiplayer · 2–6 players</p>
+
+    <div class="panel">
+      <p class="section-label">Your name</p>
+      <input class="inp" id="player-name" placeholder="Enter your name" maxlength="18">
+
+      <div style="margin-top:16px">
+        <button class="btn btn-primary btn-full" onclick="createRoom()" style="margin-bottom:10px">
+          Create a room
+        </button>
+      </div>
+
+      <div class="divider">or join existing</div>
+
+      <div class="inp-row" style="margin-bottom:10px">
+        <input class="inp code-inp" id="join-code" placeholder="XXXX" maxlength="4">
+        <button class="btn btn-green" onclick="joinRoom()">Join</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <p class="section-label">How to play</p>
+      <p style="font-size:13px;color:var(--muted);line-height:1.75">
+        One player creates a room and shares the <strong style="color:var(--text)">4-letter code</strong> with friends.
+        Everyone joins from their own device on the same Wi-Fi network.<br><br>
+        Match the top card's <strong style="color:var(--text)">suit or number</strong> to play.
+        <strong style="color:var(--text)">Skip</strong> · <strong style="color:var(--text)">Reverse</strong> ·
+        <strong style="color:var(--text)">+2</strong> · <strong style="color:var(--text)">Wild</strong> are special.
+        First to empty their hand wins!
+      </p>
+    </div>
+  </div>
+
+  <!-- ════ LOBBY ════ -->
+  <div id="lobby-screen" class="screen">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:24px">
+      <button class="btn btn-sm" onclick="leaveRoom()">← Back</button>
+      <span class="game-logo">Card Battle</span>
+    </div>
+
+    <div class="panel" style="text-align:center">
+      <p class="section-label">Room code — share this</p>
+      <div class="room-code-display" id="lobby-code">----</div>
+      <p style="font-size:12px;color:var(--muted)">Other players go to the same address and enter this code</p>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">
+        Players <span id="player-count-badge" class="badge">0/6</span>
+      </div>
+      <ul class="player-list" id="lobby-player-list"></ul>
+      <p id="lobby-waiting" class="waiting-msg" style="display:none">
+        Waiting for players to join<span class="waiting-dots"></span>
+      </p>
+    </div>
+
+    <button id="start-btn" class="btn btn-primary btn-full" onclick="startGame()" disabled>
+      Start game (need 2+ players)
+    </button>
+    <p id="host-hint" style="font-size:12px;color:var(--muted);text-align:center;margin-top:8px"></p>
+  </div>
+
+  <!-- ════ GAME ════ -->
+  <div id="game-screen" class="screen">
+    <div class="game-header">
+      <span class="game-logo">Card Battle</span>
+      <button class="btn btn-sm btn-danger" onclick="leaveRoom()">Leave</button>
+    </div>
+
+    <div id="scores-bar"></div>
+
+    <div class="panel">
+      <div class="turn-info">
+        <p class="turn-name" id="turn-name"></p>
+        <p class="msg-box" id="msg-box"></p>
+      </div>
+
+      <div class="pile-area">
+        <div class="pile-wrap">
+          <div class="pile-card clickable" id="draw-pile" onclick="drawCard()" title="Draw a card">
+            <span class="suit">🂠</span>
+            <span class="val" id="draw-count">52</span>
+          </div>
+          <span class="pile-label">draw pile</span>
+        </div>
+        <div style="color:var(--muted);font-size:18px">→</div>
+        <div class="pile-wrap">
+          <div class="pile-card" id="discard-pile">
+            <span class="suit" id="top-suit"></span>
+            <span class="val" id="top-val"></span>
+          </div>
+          <span class="pile-label">discard</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <p class="hand-label" id="hand-label">Your hand</p>
+      <div class="hand" id="hand-area"></div>
+
+      <div id="suit-chooser">
+        <p class="suit-chooser-label">Choose a suit for your Wild:</p>
+        <div class="suit-btns">
+          <button class="btn btn-sm" onclick="chooseSuit('S')">♠ Spades</button>
+          <button class="btn btn-sm" onclick="chooseSuit('H')" style="color:var(--red)">♥ Hearts</button>
+          <button class="btn btn-sm" onclick="chooseSuit('D')" style="color:var(--red)">♦ Diamonds</button>
+          <button class="btn btn-sm" onclick="chooseSuit('C')">♣ Clubs</button>
+        </div>
+      </div>
+
+      <div class="action-bar" id="action-bar"></div>
+    </div>
+  </div>
+
+  <!-- ════ END ════ -->
+  <div id="end-screen" class="screen">
+    <div class="end-center">
+      <div class="trophy-big">🏆</div>
+      <p class="winner-big" id="end-winner"></p>
+      <p class="end-sub" id="end-sub"></p>
+      <div class="final-list" id="final-list"></div>
+      <button id="restart-btn" class="btn btn-primary" onclick="restartGame()" style="display:none">
+        Play again →
+      </button>
+      <button class="btn" onclick="leaveRoom()" style="margin-top:10px;display:block;margin-left:auto;margin-right:auto">
+        Back to menu
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Constants ──────────────────────────────────────────────────────────────
+const SUIT_SYMBOLS = { S: '♠', H: '♥', D: '♦', C: '♣', W: '★' };
+const SUIT_NAMES   = { S: 'Spades', H: 'Hearts', D: 'Diamonds', C: 'Clubs' };
+const RED_SUITS    = ['H', 'D'];
+const AVATAR_COLORS = [
+  ['#2d2457','#b09af8'], ['#1a3828','#3ec97a'], ['#3d1a22','#e84b6a'],
+  ['#2a2010','#f5a623'], ['#0e2535','#60b8f5'], ['#1f1a35','#d4a0f5']
+];
+
+// ── State ──────────────────────────────────────────────────────────────────
+let ws = null;
+let myId = null;
+let myRoomCode = null;
+let isHost = false;
+let gameState = null;   // last state snapshot from server
+let lobbyPlayers = [];  // [{id, name}]
+
+// ── WebSocket connection ───────────────────────────────────────────────────
+function connect(onOpen) {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}`);
+  ws.onopen = onOpen;
+  ws.onmessage = e => handleMessage(JSON.parse(e.data));
+  ws.onclose = () => { showToast('Connection lost. Please refresh.'); };
+  ws.onerror = () => { showToast('Connection error.'); };
+}
+
+function send(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+}
+
+// ── Message handler ────────────────────────────────────────────────────────
+function handleMessage(msg) {
+  if (msg.type === 'error') { showToast(msg.message); return; }
+
+  if (msg.type === 'created') {
+    myId = msg.playerId;
+    myRoomCode = msg.roomCode;
+    isHost = true;
+    return;
+  }
+  if (msg.type === 'joined') {
+    myId = msg.playerId;
+    myRoomCode = msg.roomCode;
+    isHost = false;
+    return;
+  }
+  if (msg.type === 'lobby') {
+    lobbyPlayers = msg.players;
+    renderLobby(msg);
+    show('lobby-screen');
+    return;
+  }
+  if (msg.type === 'state') {
+    gameState = msg;
+    if (msg.winner) {
+      renderEnd(msg);
+      show('end-screen');
+    } else {
+      renderGame(msg);
+      show('game-screen');
+    }
+    return;
+  }
+}
+
+// ── Actions ────────────────────────────────────────────────────────────────
+function createRoom() {
+  const name = getName(); if (!name) return;
+  connect(() => send({ action: 'createRoom', name }));
+}
+
+function joinRoom() {
+  const name = getName(); if (!name) return;
+  const code = document.getElementById('join-code').value.trim().toUpperCase();
+  if (code.length !== 4) { showToast('Enter a 4-letter room code.'); return; }
+  connect(() => send({ action: 'joinRoom', name, roomCode: code }));
+}
+
+function startGame() { send({ action: 'startGame' }); }
+
+function playCard(index) {
+  if (!gameState || gameState.current !== myId) return;
+  send({ action: 'playCard', cardIndex: index });
+}
+
+function chooseSuit(suit) {
+  send({ action: 'playCard', cardIndex: -1, chosenSuit: suit });
+  document.getElementById('suit-chooser').style.display = 'none';
+}
+
+function drawCard() {
+  if (!gameState || gameState.current !== myId) return;
+  send({ action: 'drawCard' });
+}
+
+function endTurn() { send({ action: 'endTurn' }); }
+
+function restartGame() { send({ action: 'restartGame' }); }
+
+function leaveRoom() {
+  if (ws) { ws.close(); ws = null; }
+  myId = null; myRoomCode = null; isHost = false; gameState = null;
+  show('home-screen');
+}
+
+// ── Lobby render ───────────────────────────────────────────────────────────
+function renderLobby(msg) {
+  document.getElementById('lobby-code').textContent = msg.roomCode;
+  const list = document.getElementById('lobby-player-list');
+  list.innerHTML = '';
+  msg.players.forEach((p, i) => {
+    const [bg, fg] = AVATAR_COLORS[i % AVATAR_COLORS.length];
+    const li = document.createElement('li');
+    li.innerHTML = `<div class="avatar" style="background:${bg};color:${fg};width:32px;height:32px;font-size:12px">${p.name[0].toUpperCase()}</div>
+      <span style="flex:1">${p.name}</span>
+      <span style="font-family:monospace;font-size:10px;color:var(--muted);background:var(--surface2);border:1px solid var(--border);padding:2px 6px;border-radius:4px" title="Kubernetes pod name">${p.podName || ''}</span>
+      ${i === 0 ? '<span class="badge">Host</span>' : ''}
+      ${p.id === myId ? '<span style="font-size:11px;color:var(--muted)">· you</span>' : ''}`;
+    list.appendChild(li);
+  });
+  document.getElementById('player-count-badge').textContent = `${msg.players.length}/6`;
+  const startBtn = document.getElementById('start-btn');
+  const hint = document.getElementById('host-hint');
+  if (isHost) {
+    startBtn.style.display = '';
+    startBtn.disabled = msg.players.length < 2;
+    startBtn.textContent = msg.players.length < 2
+      ? 'Start game (need 2+ players)'
+      : `Start game with ${msg.players.length} players →`;
+    hint.textContent = '';
+  } else {
+    startBtn.style.display = 'none';
+    hint.textContent = 'Waiting for host to start the game…';
+  }
+}
+
+// ── Game render ────────────────────────────────────────────────────────────
+function renderGame(st) {
+  const isMyTurn = st.current === myId;
+  const top = st.discard;
+
+  // Top card
+  const topSuitEl = document.getElementById('top-suit');
+  const topValEl = document.getElementById('top-val');
+  topSuitEl.textContent = SUIT_SYMBOLS[top.s] || top.s;
+  topValEl.textContent = top.v === 'Wild' ? '' : top.v;
+  const discardEl = document.getElementById('discard-pile');
+  discardEl.style.color = RED_SUITS.includes(top.s) ? 'var(--red)' : top.v === 'Wild' ? 'var(--amber)' : 'var(--text)';
+
+  // Draw pile
+  document.getElementById('draw-count').textContent = st.deckCount;
+  const drawEl = document.getElementById('draw-pile');
+  drawEl.style.pointerEvents = (isMyTurn && !st.drewThisTurn && !st.pendingWild) ? 'auto' : 'none';
+  drawEl.style.opacity = (isMyTurn && !st.drewThisTurn && !st.pendingWild) ? '1' : '0.4';
+
+  // Turn
+  const currentPlayer = st.players.find(p => p.id === st.current);
+  const turnNameEl = document.getElementById('turn-name');
+  if (isMyTurn) {
+    turnNameEl.textContent = 'Your turn';
+    turnNameEl.style.color = 'var(--green)';
+  } else {
+    turnNameEl.textContent = `${currentPlayer?.name || '?'}'s turn`;
+    turnNameEl.style.color = 'var(--accent2)';
+  }
+  document.getElementById('msg-box').textContent = st.message;
+
+  // Score chips
+  const sb = document.getElementById('scores-bar'); sb.innerHTML = '';
+  st.players.forEach((p, i) => {
+    const [bg, fg] = AVATAR_COLORS[i % AVATAR_COLORS.length];
+    const chip = document.createElement('div');
+    chip.className = 'score-chip' + (p.id === st.current ? ' active' : '');
+    chip.innerHTML = `<div class="av-sm" style="background:${bg};color:${fg}">${p.name[0].toUpperCase()}</div>
+      <span class="chip-name">${p.isYou ? 'You' : p.name}</span>
+      <span class="chip-count">${p.cardCount}</span>
+      <span style="font-family:monospace;font-size:9px;color:var(--muted);display:block;width:100%;margin-top:1px" title="Pod: ${p.podName || ''}">${p.podName ? '⬡ ' + p.podName : ''}</span>`;
+    sb.appendChild(chip);
+  });
+
+  // Hand
+  const handArea = document.getElementById('hand-area'); handArea.innerHTML = '';
+  document.getElementById('hand-label').textContent = `Your hand · ${st.hand.length} card${st.hand.length !== 1 ? 's' : ''}`;
+  st.hand.forEach((c, i) => {
+    const playable = isMyTurn && !st.pendingWild && canPlayClient(c, top);
+    const isRed = RED_SUITS.includes(c.s);
+    const isWild = c.v === 'Wild';
+    const card = document.createElement('div');
+    card.className = 'hand-card' +
+      (isRed ? ' red-card' : '') +
+      (isWild ? ' wild-card' : '') +
+      (playable ? ' playable' : ' dead') +
+      (!isMyTurn ? ' not-your-turn' : '');
+    card.innerHTML = `<span class="hc-suit">${SUIT_SYMBOLS[c.s]}</span><span class="hc-val">${c.v === 'Wild' ? '' : c.v}</span>`;
+    if (playable) card.onclick = () => playCard(i);
+    handArea.appendChild(card);
+  });
+
+  // Wild suit chooser
+  const sc = document.getElementById('suit-chooser');
+  sc.style.display = (isMyTurn && st.pendingWild) ? 'block' : 'none';
+
+  // Action bar
+  const ab = document.getElementById('action-bar'); ab.innerHTML = '';
+  if (isMyTurn) {
+    if (st.drewThisTurn && !st.pendingWild) {
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-sm';
+      btn.textContent = 'End turn';
+      btn.onclick = endTurn;
+      ab.appendChild(btn);
+    }
+  } else {
+    const w = document.createElement('p');
+    w.style.cssText = 'font-size:13px;color:var(--muted);padding:4px 0';
+    w.textContent = `Waiting for ${currentPlayer?.name || '?'}…`;
+    ab.appendChild(w);
+  }
+}
+
+function canPlayClient(card, top) {
+  if (card.v === 'Wild') return true;
+  return card.s === top.s || card.v === top.v;
+}
+
+// ── End screen ─────────────────────────────────────────────────────────────
+function renderEnd(st) {
+  const winner = st.players.find(p => p.id === st.winner);
+  document.getElementById('end-winner').textContent =
+    winner?.isYou ? '🎉 You win!' : `${winner?.name || '?'} wins!`;
+  document.getElementById('end-sub').textContent = 'First to empty their hand.';
+
+  const list = document.getElementById('final-list'); list.innerHTML = '';
+  const sorted = [...st.players].sort((a, b) => a.cardCount - b.cardCount);
+  sorted.forEach((p, i) => {
+    const [bg, fg] = AVATAR_COLORS[i % AVATAR_COLORS.length];
+    const row = document.createElement('div');
+    row.className = 'final-row';
+    row.innerHTML = `<div class="avatar" style="background:${bg};color:${fg};width:30px;height:30px;font-size:11px">${p.name[0].toUpperCase()}</div>
+      <span style="flex:1">${p.isYou ? 'You' : p.name}</span>
+      <span style="color:var(--muted);font-size:13px">${p.cardCount} card${p.cardCount !== 1 ? 's' : ''} left</span>
+      ${i === 0 ? '<span style="color:var(--amber)">★</span>' : ''}`;
+    list.appendChild(row);
+  });
+
+  const rb = document.getElementById('restart-btn');
+  rb.style.display = isHost ? 'inline-flex' : 'none';
+}
+
+// ── Utilities ──────────────────────────────────────────────────────────────
+function getName() {
+  const n = document.getElementById('player-name').value.trim();
+  if (!n) { showToast('Enter your name first.'); return null; }
+  return n;
+}
+
+function show(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
+}
+
+// ── Allow Enter key on code input ─────────────────────────────────────────
+document.getElementById('join-code').addEventListener('keydown', e => {
+  if (e.key === 'Enter') joinRoom();
+});
+document.getElementById('player-name').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('join-code').focus();
+});
+</script>
+</body>
+</html>
