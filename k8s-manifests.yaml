@@ -86,6 +86,8 @@ spec:
               value: "card-battle-player:latest"
             - name: GAME_SERVER_SVC
               value: "game-server-service"
+            - name: REDIS_URL
+              value: "redis://redis-service:6379"
           # Kubernetes health checks — uses the /api/health endpoint we added
           livenessProbe:
             httpGet:
@@ -128,3 +130,46 @@ spec:
       targetPort: 3000
       nodePort: 30000    # port you open in your browser: http://<node-ip>:30000
   type: NodePort
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# k8s/redis-deployment.yaml
+# Redis instance for game state and Pub/Sub
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: card-battle
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          ports:
+            - containerPort: 6379
+
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# k8s/redis-service.yaml
+# Internal cluster service for Redis
+# ─────────────────────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-service
+  namespace: card-battle
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
