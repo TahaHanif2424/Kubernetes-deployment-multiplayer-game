@@ -115,8 +115,8 @@ async function spawnPlayerPod(playerId, roomCode) {
 async function deletePlayerPod(playerId) {
   const podName = `player-${playerId}`;
   try {
-    await k8sRequest('DELETE', `/api/v1/namespaces/${K8S_NAMESPACE}/pods/${podName}`);
-    if (K8S_ENABLED) console.log(`[k8s] Pod deleted : ${podName}`);
+    const res = await k8sRequest('DELETE', `/api/v1/namespaces/${K8S_NAMESPACE}/pods/${podName}`);
+    if (K8S_ENABLED) console.log(`[k8s] Pod deleted : ${podName}`, res);
   } catch (err) {
     console.error(`[k8s] Pod delete failed for ${playerId}:`, err.message);
   }
